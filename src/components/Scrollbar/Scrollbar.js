@@ -101,7 +101,11 @@ function Scrollbar({
   }, [MAX_POSITION]);
   const atBottom = virtualPosition > bottomThreshold;
 
-  const scrollPercentage = Number((virtualPosition * 100n) / MAX_POSITION);
+  const scrollPercentage = React.useMemo(() => {
+    if (MAX_POSITION === 0n) return 0;
+    return Number((virtualPosition * 100n) / MAX_POSITION);
+  }, [virtualPosition, MAX_POSITION]);
+
   const thumbPosition = Math.min(
     100 - (THUMB_HEIGHT * 100) / (trackRef.current?.clientHeight || 100),
     Math.max(0, scrollPercentage)

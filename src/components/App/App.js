@@ -5,7 +5,8 @@ import Scrollbar from "../Scrollbar/Scrollbar";
 import { MAX_UUID } from "../../../lib/constants";
 import UUIDDisplay from "../UUIDDisplay/UUIDDisplay";
 import SearchWidget from "../SearchWidget/SearchWidget";
-import { indexToUUID } from "../../../lib/uuidTools";
+import FavoritesWidget from "../FavoritesWidget";
+import { indexToUUID, uuidToIndex } from "../../../lib/uuidTools";
 
 const Wrapper = styled.div`
   display: flex;
@@ -41,6 +42,7 @@ function App() {
   const [itemsToShow, setItemsToShow] = React.useState(40);
   const [search, setSearch] = React.useState("");
   const [searchDisplayed, setSearchDisplayed] = React.useState(false);
+  const [showFavorites, _setShowFavorites] = React.useState(false);
   const animationRef = React.useRef(null);
 
   const [favedUUIDs, setFavedUUIDs] = React.useState(
@@ -48,7 +50,25 @@ function App() {
       ? JSON.parse(localStorage.getItem("favedUUIDs"))
       : {}
   );
-  const MAX_POSITION = MAX_UUID - BigInt(itemsToShow);
+
+  const setShowFavorites = React.useCallback(
+    (value) => {
+      setVirtualPosition(0n);
+      _setShowFavorites(value);
+    },
+    [_setShowFavorites]
+  );
+
+  const MAX_POSITION = React.useMemo(() => {
+    if (showFavorites) {
+      const itemsToShowBig = BigInt(itemsToShow);
+      const favedUUIDsLength = BigInt(Object.keys(favedUUIDs).length);
+      if (favedUUIDsLength > itemsToShowBig) {
+        return favedUUIDsLength - itemsToShowBig;
+      }
+      return 0n;
+    } else return MAX_UUID - BigInt(itemsToShow);
+  }, [itemsToShow, showFavorites, favedUUIDs]);
 
   const toggleFavedUUID = (uuid) => {
     setFavedUUIDs((prev) => {
@@ -117,6 +137,33 @@ function App() {
   }, [isAnimating, targetPosition]);
 
   const displayedUUIDs = React.useMemo(() => {
+    if (showFavorites) {
+      const allUUIDs = Object.keys(favedUUIDs)
+        .map((uuid) => {
+          const index = uuidToIndex(uuid);
+          if (index === null) {
+            console.error("no index", uuid);
+            return null;
+          }
+          return {
+            index,
+            uuid,
+          };
+        })
+        .filter((item) => item !== null)
+        .sort((a, b) => {
+          const delta = a.index - b.index;
+          if (delta < 0n) return -1;
+          if (delta > 0n) return 1;
+          return 0;
+        });
+      let startIndex = virtualPosition;
+      let endIndex = startIndex + BigInt(itemsToShow);
+      if (startIndex > MAX_POSITION) {
+        startIndex = MAX_POSITION;
+      }
+      return allUUIDs.slice(Number(startIndex), Number(endIndex));
+    }
     return Array.from({ length: itemsToShow }, (_, i) => {
       const index = virtualPosition + BigInt(i);
       if (index < 0n) {
@@ -132,7 +179,7 @@ function App() {
       }
       return { index, uuid };
     });
-  }, [virtualPosition, itemsToShow]);
+  }, [virtualPosition, itemsToShow, showFavorites, favedUUIDs, MAX_POSITION]);
 
   return (
     <>
@@ -146,6 +193,10 @@ function App() {
         setSearchDisplayed={setSearchDisplayed}
         displayedUUIDs={displayedUUIDs}
         MAX_POSITION={MAX_POSITION}
+      />
+      <FavoritesWidget
+        setShowFavorites={setShowFavorites}
+        isShowingFavorites={showFavorites}
       />
       <Wrapper>
         <HeaderAndContent>
