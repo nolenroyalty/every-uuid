@@ -14,7 +14,6 @@
   "author": "nolen (eieio)",
   "license": "ISC",
   "dependencies": {
-    "@csquare/random-bytes-seed": "^0.1.3",
     "eslint": "^8.57.1",
     "eslint-config-react-app": "^7.0.1",
     "new-component": "^5.0.3",
@@ -22,19 +21,16 @@
     "parcel-reporter-static-files-copy": "^1.5.3",
     "prettier": "^3.4.1",
     "process": "^0.11.10",
+    "random-bytes-seed": "^2.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-feather": "^2.0.10",
     "rimraf": "^6.0.1",
+    "sodium-javascript": "^0.8.0",
     "styled-components": "^6.1.13"
   },
   "browserslist": ">0.3%, defaults, supports es6-module",
   "devDependencies": {
-    "buffer": "^6.0.3",
-    "crypto-browserify": "^3.12.1",
-    "events": "^3.3.0",
-    "stream-browserify": "^3.0.0",
-    "string_decoder": "^1.3.0",
-    "vm-browserify": "^1.1.2"
+    "buffer": "^6.0.3"
   }
 }
