@@ -2,7 +2,6 @@ import React from "react";
 import styled from "styled-components";
 import UnstyledButton from "../UnstyledButton/UnstyledButton";
 import { X, ChevronUp, ChevronDown } from "../Icons/Icons";
-import { uuidToIndex } from "../../../lib/uuidTools";
 import { useUUIDSearch } from "../../../hooks/use-uuid-search";
 import { querySmallScreen, SCROLLBAR_WIDTH } from "../../../lib/constants";
 
@@ -143,30 +142,22 @@ function SearchWidget({
   }, []);
   const shiftIsHeldDown = useShiftIsHeldDown();
 
-  const { searchUUID, currentUUID, nextUUID, previousUUID } = useUUIDSearch({
+  const { searchUUID, currentIndex, nextUUID, previousUUID } = useUUIDSearch({
     displayedUUIDs,
     virtualPosition,
   });
-  const index = React.useMemo(() => {
-    if (currentUUID) {
-      const index = uuidToIndex(currentUUID);
-
-      return index;
-    }
-    return null;
-  }, [currentUUID]);
 
   React.useEffect(() => {
-    if (index) {
-      if (index < 0n) {
+    if (currentIndex) {
+      if (currentIndex < 0n) {
         setVirtualPosition(0n);
-      } else if (index >= MAX_POSITION) {
+      } else if (currentIndex >= MAX_POSITION) {
         setVirtualPosition(MAX_POSITION);
       } else {
-        setVirtualPosition(index);
+        setVirtualPosition(currentIndex);
       }
     }
-  }, [setVirtualPosition, index]);
+  }, [setVirtualPosition, currentIndex]);
 
   React.useEffect(() => {
     window.addEventListener("keydown", (e) => {
