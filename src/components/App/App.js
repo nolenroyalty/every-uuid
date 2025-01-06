@@ -36,7 +36,7 @@ const Content = styled.div`
 `;
 
 function App() {
-  const [virtualPosition, setVirtualPosition] = React.useState(0n);
+  const [currentIndex, setCurrentIndex] = React.useState(0n);
   const [isAnimating, setIsAnimating] = React.useState(false);
   const [targetPosition, setTargetPosition] = React.useState(null);
   const [itemsToShow, setItemsToShow] = React.useState(40);
@@ -51,14 +51,6 @@ function App() {
       : {}
   );
 
-  const setShowFavorites = React.useCallback(
-    (value) => {
-      setVirtualPosition(0n);
-      _setShowFavorites(value);
-    },
-    [_setShowFavorites]
-  );
-
   const MAX_POSITION = React.useMemo(() => {
     if (showFavorites) {
       const itemsToShowBig = BigInt(itemsToShow);
@@ -69,6 +61,18 @@ function App() {
       return 0n;
     } else return MAX_UUID - BigInt(itemsToShow);
   }, [itemsToShow, showFavorites, favedUUIDs]);
+
+  const virtualPosition = React.useMemo(() => {
+    return currentIndex >= MAX_POSITION ? MAX_POSITION : currentIndex;
+  }, [currentIndex, MAX_POSITION]);
+
+  const setShowFavorites = React.useCallback(
+    (value) => {
+      setCurrentIndex(0n);
+      _setShowFavorites(value);
+    },
+    [_setShowFavorites]
+  );
 
   const toggleFavedUUID = (uuid) => {
     setFavedUUIDs((prev) => {
@@ -185,14 +189,13 @@ function App() {
     <>
       <SearchWidget
         animateToPosition={animateToPosition}
-        virtualPosition={virtualPosition}
-        setVirtualPosition={setVirtualPosition}
+        currentIndex={currentIndex}
+        setCurrentIndex={setCurrentIndex}
         search={search}
         setSearch={setSearch}
         searchDisplayed={searchDisplayed}
         setSearchDisplayed={setSearchDisplayed}
         displayedUUIDs={displayedUUIDs}
-        MAX_POSITION={MAX_POSITION}
       />
       <FavoritesWidget
         setShowFavorites={setShowFavorites}
@@ -206,6 +209,7 @@ function App() {
               itemsToShow={itemsToShow}
               setItemsToShow={setItemsToShow}
               virtualPosition={virtualPosition}
+              currentIndex={currentIndex}
               setVirtualPosition={setVirtualPosition}
               favedUUIDs={favedUUIDs}
               toggleFavedUUID={toggleFavedUUID}

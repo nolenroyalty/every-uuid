@@ -126,14 +126,12 @@ function useShiftIsHeldDown() {
 }
 
 function SearchWidget({
-  setVirtualPosition,
+  currentIndex,
+  setCurrentIndex,
   search,
   setSearch,
   searchDisplayed,
   setSearchDisplayed,
-  displayedUUIDs,
-  virtualPosition,
-  MAX_POSITION,
 }) {
   const inputRef = React.useRef(null);
   const cmdKey = React.useMemo(() => {
@@ -142,22 +140,7 @@ function SearchWidget({
   }, []);
   const shiftIsHeldDown = useShiftIsHeldDown();
 
-  const { searchUUID, currentIndex, nextUUID, previousUUID } = useUUIDSearch({
-    displayedUUIDs,
-    virtualPosition,
-  });
-
-  React.useEffect(() => {
-    if (currentIndex) {
-      if (currentIndex < 0n) {
-        setVirtualPosition(0n);
-      } else if (currentIndex >= MAX_POSITION) {
-        setVirtualPosition(MAX_POSITION);
-      } else {
-        setVirtualPosition(currentIndex);
-      }
-    }
-  }, [setVirtualPosition, currentIndex]);
+  const { searchUUID, nextUUID, previousUUID } = useUUIDSearch({ currentIndex, setCurrentIndex });
 
   React.useEffect(() => {
     window.addEventListener("keydown", (e) => {
