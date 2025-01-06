@@ -132,6 +132,8 @@ function SearchWidget({
   setSearch,
   searchDisplayed,
   setSearchDisplayed,
+  showFavorites,
+  favorites,
 }) {
   const inputRef = React.useRef(null);
   const cmdKey = React.useMemo(() => {
@@ -140,7 +142,12 @@ function SearchWidget({
   }, []);
   const shiftIsHeldDown = useShiftIsHeldDown();
 
-  const { searchUUID, nextUUID, previousUUID } = useUUIDSearch({ currentIndex, setCurrentIndex });
+  const { searchUUID, nextUUID, previousUUID } = useUUIDSearch({
+    currentIndex,
+    setCurrentIndex,
+    showFavorites,
+    favorites,
+  });
 
   React.useEffect(() => {
     window.addEventListener("keydown", (e) => {

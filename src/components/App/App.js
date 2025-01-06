@@ -35,6 +35,12 @@ const Content = styled.div`
   overscroll-behavior: none;
 `;
 
+/** Finds the array index of a favorite given its UUID index */
+function getFavoriteArrayIndex(favorites, index) {
+  const favorite = favorites.findIndex((favorite) => favorite.index === index);
+  return favorite === -1 ? 0n : BigInt(favorite);
+}
+
 function App() {
   const [currentIndex, setCurrentIndex] = React.useState(0n);
   const [virtualPosition, setVirtualPosition] = React.useState(currentIndex);
@@ -52,6 +58,12 @@ function App() {
       : {}
   );
 
+  const favorites = React.useMemo(() => {
+    return Object.keys(favedUUIDs)
+      .map((uuid) => ({ index: uuidToIndex(uuid), uuid }))
+      .sort((a, b) => Number(a.index - b.index));
+  }, [favedUUIDs]);
+
   const MAX_POSITION = React.useMemo(() => {
     if (showFavorites) {
       const itemsToShowBig = BigInt(itemsToShow);
@@ -67,24 +79,27 @@ function App() {
   React.useEffect(() => {
     if (searchDisplayed) {
       setVirtualPosition((prevPosition) => {
-        if (currentIndex < prevPosition + BigInt(itemsToShow) && currentIndex > prevPosition) {
+        // For favorites we need to map between the UUID index and the index on the page
+        const index = showFavorites ? getFavoriteArrayIndex(favorites, currentIndex) : currentIndex;
+        if (index < prevPosition + BigInt(itemsToShow) && index > prevPosition) {
           return prevPosition;
         }
-        return currentIndex >= MAX_POSITION ? MAX_POSITION : currentIndex;
+        return index >= MAX_POSITION ? MAX_POSITION : index;
       })
     }
-  }, [searchDisplayed, itemsToShow, currentIndex, MAX_POSITION]);
+  }, [searchDisplayed, itemsToShow, currentIndex, showFavorites, favorites, MAX_POSITION]);
 
   // While not searching, keep the current index up to date
   React.useEffect(() => {
     if (!searchDisplayed) {
-      setCurrentIndex(virtualPosition);
+      // For favorites we need to map between the UUID index and the index on the page
+      setCurrentIndex(showFavorites ? favorites[virtualPosition].index : virtualPosition);
     }
-  }, [virtualPosition, setCurrentIndex, searchDisplayed]);
+  }, [virtualPosition, setCurrentIndex, searchDisplayed, showFavorites, favorites]);
 
   const setShowFavorites = React.useCallback(
     (value) => {
-      setCurrentIndex(0n);
+      setVirtualPosition(0n);
       _setShowFavorites(value);
     },
     [_setShowFavorites]
@@ -212,6 +227,8 @@ function App() {
         searchDisplayed={searchDisplayed}
         setSearchDisplayed={setSearchDisplayed}
         displayedUUIDs={displayedUUIDs}
+        showFavorites={showFavorites}
+        favorites={favorites}
       />
       <FavoritesWidget
         setShowFavorites={setShowFavorites}
