@@ -258,6 +258,7 @@ function App() {
         <Scrollbar
           virtualPosition={virtualPosition}
           MAX_POSITION={MAX_POSITION}
+          itemsToShow={itemsToShow}
           animateToPosition={animateToPosition}
           setVirtualPosition={setVirtualPosition}
           setIsAnimating={setIsAnimating}
