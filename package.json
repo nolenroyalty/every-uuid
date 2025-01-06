@@ -21,11 +21,16 @@
     "parcel-reporter-static-files-copy": "^1.5.3",
     "prettier": "^3.4.1",
     "process": "^0.11.10",
+    "random-bytes-seed": "^2.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-feather": "^2.0.10",
     "rimraf": "^6.0.1",
+    "sodium-javascript": "^0.8.0",
     "styled-components": "^6.1.13"
   },
-  "browserslist": ">0.3%, defaults, supports es6-module"
+  "browserslist": ">0.3%, defaults, supports es6-module",
+  "devDependencies": {
+    "buffer": "^6.0.3"
+  }
 }

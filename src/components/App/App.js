@@ -35,8 +35,15 @@ const Content = styled.div`
   overscroll-behavior: none;
 `;
 
+/** Finds the array index of a favorite given its UUID index */
+function getFavoriteArrayIndex(favorites, index) {
+  const favorite = favorites.findIndex((favorite) => favorite.index === index);
+  return favorite === -1 ? 0n : BigInt(favorite);
+}
+
 function App() {
-  const [virtualPosition, setVirtualPosition] = React.useState(0n);
+  const [currentIndex, setCurrentIndex] = React.useState(0n);
+  const [virtualPosition, setVirtualPosition] = React.useState(currentIndex);
   const [isAnimating, setIsAnimating] = React.useState(false);
   const [targetPosition, setTargetPosition] = React.useState(null);
   const [itemsToShow, setItemsToShow] = React.useState(40);
@@ -51,13 +58,11 @@ function App() {
       : {}
   );
 
-  const setShowFavorites = React.useCallback(
-    (value) => {
-      setVirtualPosition(0n);
-      _setShowFavorites(value);
-    },
-    [_setShowFavorites]
-  );
+  const favorites = React.useMemo(() => {
+    return Object.keys(favedUUIDs)
+      .map((uuid) => ({ index: uuidToIndex(uuid), uuid }))
+      .sort((a, b) => Number(a.index - b.index));
+  }, [favedUUIDs]);
 
   const MAX_POSITION = React.useMemo(() => {
     if (showFavorites) {
@@ -69,6 +74,36 @@ function App() {
       return 0n;
     } else return MAX_UUID - BigInt(itemsToShow);
   }, [itemsToShow, showFavorites, favedUUIDs]);
+
+  // While searching, only scroll when the currentIndex is out of view
+  React.useEffect(() => {
+    if (searchDisplayed) {
+      setVirtualPosition((prevPosition) => {
+        // For favorites we need to map between the UUID index and the index on the page
+        const index = showFavorites ? getFavoriteArrayIndex(favorites, currentIndex) : currentIndex;
+        if (index < prevPosition + BigInt(itemsToShow) && index > prevPosition) {
+          return prevPosition;
+        }
+        return index >= MAX_POSITION ? MAX_POSITION : index;
+      })
+    }
+  }, [searchDisplayed, itemsToShow, currentIndex, showFavorites, favorites, MAX_POSITION]);
+
+  // While not searching, keep the current index up to date
+  React.useEffect(() => {
+    if (!searchDisplayed) {
+      // For favorites we need to map between the UUID index and the index on the page
+      setCurrentIndex(showFavorites ? favorites[virtualPosition].index : virtualPosition);
+    }
+  }, [virtualPosition, setCurrentIndex, searchDisplayed, showFavorites, favorites]);
+
+  const setShowFavorites = React.useCallback(
+    (value) => {
+      setVirtualPosition(0n);
+      _setShowFavorites(value);
+    },
+    [_setShowFavorites]
+  );
 
   const toggleFavedUUID = (uuid) => {
     setFavedUUIDs((prev) => {
@@ -185,14 +220,15 @@ function App() {
     <>
       <SearchWidget
         animateToPosition={animateToPosition}
-        virtualPosition={virtualPosition}
-        setVirtualPosition={setVirtualPosition}
+        currentIndex={currentIndex}
+        setCurrentIndex={setCurrentIndex}
         search={search}
         setSearch={setSearch}
         searchDisplayed={searchDisplayed}
         setSearchDisplayed={setSearchDisplayed}
         displayedUUIDs={displayedUUIDs}
-        MAX_POSITION={MAX_POSITION}
+        showFavorites={showFavorites}
+        favorites={favorites}
       />
       <FavoritesWidget
         setShowFavorites={setShowFavorites}
@@ -206,6 +242,7 @@ function App() {
               itemsToShow={itemsToShow}
               setItemsToShow={setItemsToShow}
               virtualPosition={virtualPosition}
+              currentIndex={currentIndex}
               setVirtualPosition={setVirtualPosition}
               favedUUIDs={favedUUIDs}
               toggleFavedUUID={toggleFavedUUID}
@@ -221,6 +258,7 @@ function App() {
         <Scrollbar
           virtualPosition={virtualPosition}
           MAX_POSITION={MAX_POSITION}
+          itemsToShow={itemsToShow}
           animateToPosition={animateToPosition}
           setVirtualPosition={setVirtualPosition}
           setIsAnimating={setIsAnimating}

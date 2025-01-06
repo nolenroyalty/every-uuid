@@ -262,6 +262,7 @@ function Row({
   toggleFavedUUID,
   search,
   searchDisplayed,
+  currentIndex,
 }) {
   const indexString = index.toString();
   const length = indexString.length;
@@ -329,6 +330,8 @@ function Row({
     );
   }
 
+  const searchTarget = searchDisplayed && search && currentIndex === index;
+
   return (
     <RowWrapper
       // this doesn't work well with touch-scrolling (you end up copying on accident)
@@ -340,7 +343,7 @@ function Row({
         }
       }}
       style={{
-        backgroundColor: mouseDown ? "var(--slate-500)" : null,
+        backgroundColor: mouseDown ? "var(--slate-500)" : (searchTarget ? "var(--slate-200)" : null),
       }}
     >
       <IndexWithPadding style={{ gridArea: "index" }}>
@@ -376,6 +379,7 @@ function UUIDDisplay({
   itemsToShow,
   setItemsToShow,
   virtualPosition,
+  currentIndex,
   setVirtualPosition,
   favedUUIDs,
   toggleFavedUUID,
@@ -615,6 +619,7 @@ function UUIDDisplay({
               toggleFavedUUID={toggleFavedUUID}
               search={search}
               searchDisplayed={searchDisplayed}
+              currentIndex={currentIndex}
             />
           );
         })}

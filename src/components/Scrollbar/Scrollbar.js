@@ -3,7 +3,9 @@ import styled from "styled-components";
 import { SCROLLBAR_WIDTH } from "../../../lib/constants";
 import UnstyledButton from "../UnstyledButton/UnstyledButton";
 import { ChevronUp, ChevronDown } from "../Icons/Icons";
-const THUMB_HEIGHT = 20;
+
+const MIN_THUMB_HEIGHT = 20;
+
 
 const Wrapper = styled.div`
   width: ${SCROLLBAR_WIDTH}px;
@@ -27,7 +29,7 @@ const Thumb = styled.div`
   right: 0;
   background-color: var(--slate-400);
   top: var(--position);
-  height: ${THUMB_HEIGHT}px;
+  height: var(--height);
   cursor: grab;
   transition: background-color 0.1s ease-in-out;
   -webkit-tap-highlight-color: transparent;
@@ -83,11 +85,14 @@ function percentOfMax(percentage, max) {
   return (max * percentage) / 1000n;
 }
 
-const TOP_THRESHOLD = 200000n;
+function bound(min, max, value) {
+  return Math.max(min, Math.min(max, value));
+}
 
 function Scrollbar({
   virtualPosition,
   MAX_POSITION,
+  itemsToShow,
   animateToPosition,
   setVirtualPosition,
   setIsAnimating,
@@ -95,20 +100,29 @@ function Scrollbar({
   const thumbRef = React.useRef(null);
   const trackRef = React.useRef(null);
   const [isDragging, setIsDragging] = React.useState(false);
-  const atTop = virtualPosition < TOP_THRESHOLD;
-  const bottomThreshold = React.useMemo(() => {
-    return MAX_POSITION - TOP_THRESHOLD;
-  }, [MAX_POSITION]);
-  const atBottom = virtualPosition > bottomThreshold;
+  const [dragOffset, setDragOffset] = React.useState(0);
+
+  const atTop = virtualPosition === 0n;
+  const atBottom = virtualPosition === MAX_POSITION;
+
+  const scrollbarHeight = trackRef.current?.clientHeight || 100;
+  const thumbHeight = Math.round(
+    bound(
+      MIN_THUMB_HEIGHT,
+      scrollbarHeight,
+      scrollbarHeight * itemsToShow / (Number(MAX_POSITION) + itemsToShow),
+    ),
+  );
 
   const scrollPercentage = React.useMemo(() => {
     if (MAX_POSITION === 0n) return 0;
-    return Number((virtualPosition * 100n) / MAX_POSITION);
+    return Number(virtualPosition) / Number(MAX_POSITION);
   }, [virtualPosition, MAX_POSITION]);
 
-  const thumbPosition = Math.min(
-    100 - (THUMB_HEIGHT * 100) / (trackRef.current?.clientHeight || 100),
-    Math.max(0, scrollPercentage),
+  const thumbPosition = bound(
+    0,
+    scrollbarHeight - thumbHeight,
+    (scrollbarHeight - thumbHeight) * scrollPercentage,
   );
 
   const handleTrackClick = (e) => {
@@ -118,10 +132,9 @@ function Scrollbar({
     if (!trackRef.current) return;
 
     const rect = trackRef.current.getBoundingClientRect();
-    const trackHeight = rect.height - THUMB_HEIGHT;
-    let clickPosition = (e.clientY - rect.top - THUMB_HEIGHT / 2) / trackHeight;
-    clickPosition = Math.max(0, Math.min(1, clickPosition));
-    const newPosition = percentOfMax(clickPosition, MAX_POSITION);
+    const trackHeight = rect.height - thumbHeight;
+    const targetPercentage = bound(0, 1, (e.clientY - rect.top - thumbHeight / 2) / trackHeight);
+    const newPosition = percentOfMax(targetPercentage, MAX_POSITION);
 
     animateToPosition(newPosition);
   };
@@ -131,22 +144,22 @@ function Scrollbar({
       if (!isDragging || !trackRef.current) return;
 
       const rect = trackRef.current.getBoundingClientRect();
-      const trackHeight = rect.height - THUMB_HEIGHT;
-      let percentage = (e.clientY - rect.top - THUMB_HEIGHT / 2) / trackHeight;
-      percentage = Math.max(0, Math.min(1, percentage));
+      const trackHeight = rect.height - thumbHeight;
+      const percentage = bound(0, 1, (e.clientY - dragOffset - rect.top - thumbHeight / 2) / trackHeight);
       const newPosition = percentOfMax(percentage, MAX_POSITION);
       setVirtualPosition(newPosition);
     },
-    [isDragging, trackRef, MAX_POSITION, setVirtualPosition],
+    [isDragging, dragOffset, trackRef, MAX_POSITION, setVirtualPosition, thumbHeight],
   );
 
   const handleDragStart = React.useCallback(
     (e) => {
       e.preventDefault();
       setIsDragging(true);
+      setDragOffset(e.clientY - thumbRef.current.getBoundingClientRect().top - thumbHeight / 2);
       setIsAnimating(false);
     },
-    [setIsDragging, setIsAnimating],
+    [thumbRef, thumbHeight, setIsDragging, setIsAnimating],
   );
 
   const handleDragEnd = React.useCallback(() => {
@@ -176,7 +189,7 @@ function Scrollbar({
       <Track ref={trackRef} onClick={handleTrackClick}>
         <Thumb
           ref={thumbRef}
-          style={{ "--position": `${thumbPosition}%` }}
+          style={{ "--position": `${thumbPosition}px`, "--height": `${thumbHeight}px` }}
           onPointerDown={handleDragStart}
         />
       </Track>

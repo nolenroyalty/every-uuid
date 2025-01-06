@@ -1,305 +1,65 @@
 import React from "react";
-import { uuidToIndex, indexToUUID } from "../lib/uuidTools";
-import { MAX_UUID } from "../lib/constants";
-const PADDING_SENTINEL = "X";
-const VARIANT_SENTINEL = "V";
-const VERSION = "4";
-const VALID_VARIANTS = ["8", "9", "a", "b"];
+import { findNextIndex, uuidToIndex } from "../lib/uuidTools";
 
-function getPatternWithPadding(search, leftPadding) {
-  const uuidTemplate = `${PADDING_SENTINEL.repeat(8)}-${PADDING_SENTINEL.repeat(4)}-${VERSION}${PADDING_SENTINEL.repeat(3)}-${VARIANT_SENTINEL}${PADDING_SENTINEL.repeat(3)}-${PADDING_SENTINEL.repeat(12)}`;
+const FORWARD = 1;
+const BACKWARD = -1;
 
-  for (let pos = 0; pos < search.length; pos++) {
-    const patternPos = leftPadding + pos;
-    const inputChar = search[pos];
-    const templateChar = uuidTemplate[patternPos];
+/** Searches for a favorite UUID matching query from startIndex in direction */
+function findFavoriteIndex(query, startIndex, direction, favorites) {
+  let favoriteIndex = favorites.findIndex((favorite) => favorite.index >= startIndex);
+  if (favoriteIndex === -1) favoriteIndex = 0;
+  const orderedFavorites = favorites
+    .slice(favoriteIndex + direction)
+    .concat(favorites.slice(0, favoriteIndex + direction));
 
-    if (
-      (inputChar === "-" && templateChar !== "-") ||
-      (templateChar === "-" && inputChar !== "-")
-    ) {
-      return null;
-    }
+  if (direction === BACKWARD) orderedFavorites.reverse();
 
-    if (patternPos === 14 && inputChar !== VERSION) {
-      return null;
-    }
-
-    if (patternPos === 19 && !VALID_VARIANTS.includes(inputChar)) {
-      return null;
-    }
-  }
-
-  const pattern =
-    uuidTemplate.slice(0, leftPadding) +
-    search +
-    uuidTemplate.slice(leftPadding + search.length);
-
-  const sections = pattern.split("-");
-  if (
-    sections[0].length === 8 &&
-    sections[1].length === 4 &&
-    sections[2].length === 4 &&
-    sections[3].length === 4 &&
-    sections[4].length === 12
-  ) {
-    return pattern;
-  }
-
-  return null;
+  const favorite = orderedFavorites.find((favorite) => favorite.uuid.includes(query));
+  return favorite ? favorite.index : undefined;
 }
 
-function getAllValidPatterns(search) {
-  const patterns = [];
-  const uuidTemplate = `${PADDING_SENTINEL.repeat(8)}-${PADDING_SENTINEL.repeat(4)}-${VERSION}${PADDING_SENTINEL.repeat(3)}-${VARIANT_SENTINEL}${PADDING_SENTINEL.repeat(3)}-${PADDING_SENTINEL.repeat(12)}`;
-
-  for (
-    let leftPadding = 0;
-    leftPadding < uuidTemplate.length - search.length + 1;
-    leftPadding++
-  ) {
-    const pattern = getPatternWithPadding(search, leftPadding);
-    if (pattern) {
-      patterns.push({ pattern, leftPadding });
-    }
-  }
-
-  return patterns;
+/** Searches for a UUID matching query from startIndex in direction */
+function findIndex(query, startIndex, direction, showFavorites, favorites) {
+  if (showFavorites) return findFavoriteIndex(query, startIndex, direction, favorites);
+  return findNextIndex(query, startIndex, BigInt(direction));
 }
 
-function generateRandomUUID(pattern) {
-  return pattern
-    .replace(
-      new RegExp(VARIANT_SENTINEL, "g"),
-      () => VALID_VARIANTS[Math.floor(Math.random() * VALID_VARIANTS.length)]
-    )
-    .replace(
-      new RegExp(PADDING_SENTINEL, "g"),
-      () => "0123456789abcdef"[Math.floor(Math.random() * 16)]
-    );
-}
-
-const SEARCH_LOOKBACK = 50;
-const SEARCH_LOOKAHEAD = 25;
-const RANDOM_SEARCH_ITERATIONS = 100;
-
-export function useUUIDSearch({ virtualPosition, displayedUUIDs }) {
+export function useUUIDSearch({
+  currentIndex,
+  setCurrentIndex,
+  showFavorites,
+  favorites,
+}) {
   const [search, setSearch] = React.useState(null);
-  const [uuid, setUUID] = React.useState(null);
-  // Stack of complete states we've seen
-  const [nextStates, setNextStates] = React.useState([]);
-
-  const previousUUIDs = React.useMemo(() => {
-    let hasComputed = false;
-    let value = null;
-    const getValue = () => {
-      const compute = () => {
-        const prev = [];
-        for (let i = 1; i <= SEARCH_LOOKBACK; i++) {
-          i = BigInt(i);
-          let index = BigInt(virtualPosition) - i;
-          if (index < 0n) {
-            index = MAX_UUID + index;
-          }
-          const uuid = indexToUUID(index);
-          prev.push({ index, uuid });
-        }
-        return prev;
-      };
-      if (!hasComputed) {
-        value = compute();
-        hasComputed = true;
-      }
-      return value;
-    };
-    return getValue;
-  }, [virtualPosition]);
-
-  const nextUUIDs = React.useMemo(() => {
-    let hasComputed = false;
-    let value = null;
-    const getValue = () => {
-      const compute = () => {
-        const next = [];
-        for (let i = 1; i <= SEARCH_LOOKAHEAD; i++) {
-          i = BigInt(i);
-          let index = virtualPosition + i;
-          if (index > MAX_UUID) {
-            index = index - MAX_UUID;
-          }
-          const uuid = indexToUUID(index);
-          next.push({ index, uuid });
-        }
-        return next;
-      };
-      if (!hasComputed) {
-        value = compute();
-        hasComputed = true;
-      }
-      return value;
-    };
-    return getValue;
-  }, [virtualPosition]);
-
-  const searchAround = React.useCallback(
-    ({ input, wantHigher, canUseCurrentIndex }) => {
-      if (wantHigher) {
-        const startPosition = canUseCurrentIndex ? 0 : 1;
-        for (let i = startPosition; i < displayedUUIDs.length; i++) {
-          const uuid = displayedUUIDs[i].uuid;
-          if (uuid.includes(input)) {
-            return { uuid, index: displayedUUIDs[i].index };
-          }
-        }
-        const next = nextUUIDs();
-        for (let i = 0; i < next.length; i++) {
-          const uuid = next[i].uuid;
-          if (uuid.includes(input)) {
-            return { uuid, index: nextUUIDs[i].index };
-          }
-        }
-      } else {
-        // canUseCurrentIndex isn't relevant when searching backwards!
-        const prev = previousUUIDs();
-        for (const { uuid, index } of prev) {
-          if (uuid.includes(input)) {
-            return { uuid, index };
-          }
-        }
-      }
-      return null;
-    },
-    [displayedUUIDs, previousUUIDs, nextUUIDs]
-  );
-
-  const searchRandomly = React.useCallback(
-    ({ input, wantHigher }) => {
-      const patterns = getAllValidPatterns(input);
-      if (patterns.length === 0) return null;
-      let best = null;
-      let compareIndex = virtualPosition;
-      for (let i = 0; i < RANDOM_SEARCH_ITERATIONS; i++) {
-        const { pattern, leftPadding } =
-          patterns[Math.floor(Math.random() * patterns.length)];
-        const uuid = generateRandomUUID(pattern);
-        const index = uuidToIndex(uuid);
-        const satisfiesConstraint = wantHigher
-          ? index > compareIndex
-          : index < compareIndex;
-        const notInHistory = !nextStates.some(
-          ({ uuid: nextUUID }) => nextUUID === uuid
-        );
-        if (satisfiesConstraint && notInHistory) {
-          const isBetter =
-            best === null
-              ? true
-              : wantHigher
-                ? index < best.index
-                : index > best.index;
-          if (isBetter) {
-            best = { uuid, pattern, leftPadding, index };
-          }
-        }
-      }
-      if (best) {
-        return best;
-      }
-      const { pattern: fallbackPattern, leftPadding: fallbackLeftPadding } =
-        patterns[Math.floor(Math.random() * patterns.length)];
-      return {
-        uuid: generateRandomUUID(fallbackPattern),
-        pattern: fallbackPattern,
-        leftPadding: fallbackLeftPadding,
-        index: uuidToIndex(uuid),
-      };
-    },
-    [nextStates, uuid, virtualPosition]
-  );
 
   const searchUUID = React.useCallback(
     (input) => {
-      const invalid = input.toLowerCase().replace(/[^0-9a-f-]/g, "");
-      if (invalid !== input) {
-        return null;
-      }
-      const newSearch = input.toLowerCase().replace(/[^0-9a-f-]/g, "");
-      if (!newSearch) return null;
-
-      // Clear next states stack when search changes
-      setNextStates([]);
-
-      const inner = () => {
-        const around = searchAround({
-          input,
-          wantHigher: true,
-          canUseCurrentIndex: true,
-        });
-        if (around) return around;
-        return searchRandomly({ input, wantHigher: true });
-      };
-
-      const result = inner();
-      if (result) {
-        setSearch(newSearch);
-        setUUID(result.uuid);
-        setNextStates((prev) => [...prev, result]);
-      }
-      return result?.uuid ?? null;
+      setSearch(input);
+      const index = findIndex(input, currentIndex, FORWARD, showFavorites, favorites);
+      if (index !== undefined) setCurrentIndex(index);
     },
-    [searchAround, searchRandomly]
+    [currentIndex, setCurrentIndex, showFavorites, favorites],
   );
 
   const nextUUID = React.useCallback(() => {
-    if (!uuid || !search) return null;
-    const inner = () => {
-      const around = searchAround({
-        input: search,
-        wantHigher: true,
-        canUseCurrentIndex: false,
-      });
-      if (around) return around;
-      return searchRandomly({ input: search, wantHigher: true });
-    };
-    const result = inner();
-    if (result) {
-      setUUID(result.uuid);
-      setNextStates((prev) => [...prev, result]);
-      return result.uuid;
-    }
+    if (!search) return null;
+
+    const index = findIndex(search, currentIndex, FORWARD, showFavorites, favorites);
+    if (index !== undefined) setCurrentIndex(index);
     return null;
-  }, [uuid, search, searchAround, searchRandomly]);
+  }, [search, currentIndex, setCurrentIndex, showFavorites, favorites]);
 
   const previousUUID = React.useCallback(() => {
-    if (!uuid || !search) return null;
+    if (!search) return null;
 
-    if (nextStates.length > 1) {
-      setNextStates((prev) => prev.slice(0, -1));
-      const prevState = nextStates[nextStates.length - 2];
-      setUUID(prevState.uuid);
-      return prevState.uuid;
-    }
-
-    const inner = () => {
-      const around = searchAround({
-        input: search,
-        wantHigher: false,
-        canUseCurrentIndex: false,
-      });
-      if (around) return around;
-      return searchRandomly({ input: search, wantHigher: false });
-    };
-    const result = inner();
-    if (result) {
-      setUUID(result.uuid);
-      return result.uuid;
-    }
+    const index = findIndex(search, currentIndex, BACKWARD, showFavorites, favorites);
+    if (index !== undefined) setCurrentIndex(index);
     return null;
-  }, [uuid, search, nextStates, searchAround, searchRandomly]);
+  }, [search, currentIndex, setCurrentIndex, showFavorites, favorites]);
 
   return {
     searchUUID,
     nextUUID,
     previousUUID,
-    currentUUID: uuid,
   };
 }
