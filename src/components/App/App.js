@@ -37,6 +37,7 @@ const Content = styled.div`
 
 function App() {
   const [currentIndex, setCurrentIndex] = React.useState(0n);
+  const [virtualPosition, setVirtualPosition] = React.useState(currentIndex);
   const [isAnimating, setIsAnimating] = React.useState(false);
   const [targetPosition, setTargetPosition] = React.useState(null);
   const [itemsToShow, setItemsToShow] = React.useState(40);
@@ -62,9 +63,24 @@ function App() {
     } else return MAX_UUID - BigInt(itemsToShow);
   }, [itemsToShow, showFavorites, favedUUIDs]);
 
-  const virtualPosition = React.useMemo(() => {
-    return currentIndex >= MAX_POSITION ? MAX_POSITION : currentIndex;
-  }, [currentIndex, MAX_POSITION]);
+  // While searching, only scroll when the currentIndex is out of view
+  React.useEffect(() => {
+    if (searchDisplayed) {
+      setVirtualPosition((prevPosition) => {
+        if (currentIndex < prevPosition + BigInt(itemsToShow) && currentIndex > prevPosition) {
+          return prevPosition;
+        }
+        return currentIndex >= MAX_POSITION ? MAX_POSITION : currentIndex;
+      })
+    }
+  }, [searchDisplayed, itemsToShow, currentIndex, MAX_POSITION]);
+
+  // While not searching, keep the current index up to date
+  React.useEffect(() => {
+    if (!searchDisplayed) {
+      setCurrentIndex(virtualPosition);
+    }
+  }, [virtualPosition, setCurrentIndex, searchDisplayed]);
 
   const setShowFavorites = React.useCallback(
     (value) => {
