@@ -259,6 +259,7 @@ function Row({
   index,
   uuid,
   isFaved,
+  isHighlighted,
   toggleFavedUUID,
   search,
   searchDisplayed,
@@ -340,7 +341,7 @@ function Row({
         }
       }}
       style={{
-        backgroundColor: mouseDown ? "var(--slate-500)" : null,
+        backgroundColor: mouseDown ? "var(--slate-500)" : isHighlighted ? "var(--emerald-100)" : null,
       }}
     >
       <IndexWithPadding style={{ gridArea: "index" }}>
@@ -376,6 +377,7 @@ function UUIDDisplay({
   itemsToShow,
   setItemsToShow,
   virtualPosition,
+  highlightedPosition,
   setVirtualPosition,
   favedUUIDs,
   toggleFavedUUID,
@@ -612,6 +614,7 @@ function UUIDDisplay({
               index={index}
               uuid={uuid}
               isFaved={favedUUIDs[uuid]}
+              isHighlighted={highlightedPosition === index}
               toggleFavedUUID={toggleFavedUUID}
               search={search}
               searchDisplayed={searchDisplayed}
